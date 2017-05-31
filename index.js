@@ -65,7 +65,7 @@ function WebpackPwaManifest (options) {
   if (this.config.theme_color && !validateCssColor(this.config.theme_color)) throw presetError('theme_color', this.config.theme_color)
 }
 
-WebpackPwaManifest.prototype.generateIcons = function (compilation, callback) {
+WebpackPwaManifest.prototype.generateIcons = function (callback) {
   const iconsCache = [...this.config.icons]
   this.config.icons = []
   const self = this
@@ -85,10 +85,6 @@ WebpackPwaManifest.prototype.generateIcons = function (compilation, callback) {
       if (err) throw new Error(`It was not possible to read ${icon.src}.`)
       image.resize(size, size).getBuffer(type, (err, buffer) => {
         if (err) throw new Error(`It was not possible to retrieve buffer of ${icon.src}`)
-        compilation.assets[filename] = {
-          source: () => buffer,
-          size: () => buffer.length
-        }
         if (icon.sizes.length > 0) {
           processResize(icon.sizes.pop(), icon, icons) // next size
         } else if (icons.length) {
@@ -106,29 +102,22 @@ WebpackPwaManifest.prototype.generateIcons = function (compilation, callback) {
   }
 }
 
-WebpackPwaManifest.prototype.generateManifest = function (compilation) {
+WebpackPwaManifest.prototype.generateManifest = function () {
   const content = Object.assign({}, this.config)
   delete content.filename
   const json = JSON.stringify(content, null, 2)
-  compilation.assets[this.config.filename] = {
-    source: () => json,
-    size: () => json.length
-  }
+  return json;
 }
 
-WebpackPwaManifest.prototype.apply = function (compiler) {
+WebpackPwaManifest.prototype.apply = function () {
   const self = this
-  compiler.plugin('emit', (compilation, callback) => {
-    if (self.config.icons) {
-      self.generateIcons(compilation, () => {
-        self.generateManifest(compilation)
-        callback()
-      })
-    } else {
-      self.generateManifest(compilation)
-      callback()
-    }
-  })
+  if (self.config.icons) {
+    return self.generateIcons(() => {
+      return self.generateManifest()
+    })
+  } else {
+    return self.generateManifest()
+  }
 }
 
 module.exports = WebpackPwaManifest
